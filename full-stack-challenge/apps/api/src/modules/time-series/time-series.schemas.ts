@@ -21,5 +21,10 @@ export const readingsRangeQuerySchema = z.object({
   to: isoDateTime.optional(),
 });
 
+export const forecastQuerySchema = z.object({
+  horizon: z.coerce.number().int().min(1).max(120).default(12),
+});
+
 export type CreateReadingsInput = z.infer<typeof createReadingsSchema>;
 export type ReadingsRangeQuery = z.infer<typeof readingsRangeQuerySchema>;
+export type ForecastQuery = z.infer<typeof forecastQuerySchema>;

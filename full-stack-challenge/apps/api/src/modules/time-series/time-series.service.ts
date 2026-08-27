@@ -1,7 +1,12 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../shared/errors';
-import type { CreateReadingsInput, ReadingsRangeQuery } from './time-series.schemas';
+import { forecastLinear } from './forecast';
+import type {
+  CreateReadingsInput,
+  ForecastQuery,
+  ReadingsRangeQuery,
+} from './time-series.schemas';
 
 function buildTimestampFilter(range?: ReadingsRangeQuery): Prisma.DateTimeFilter | undefined {
   if (!range?.from && !range?.to) {
@@ -135,4 +140,33 @@ export async function deleteReadings(pointId: string, range?: ReadingsRangeQuery
   });
 
   return { deletedCount: result.count };
+}
+
+export async function forecastReadings(pointId: string, query: ForecastQuery) {
+  const readings = await listReadings(pointId);
+
+  if (readings.length < 2) {
+    throw new AppError(
+      400,
+      'At least 2 readings are required to generate a forecast'
+    );
+  }
+
+  const history = readings.map((reading) => ({
+    timestampMs: new Date(reading.timestamp).getTime(),
+    value: reading.value,
+  }));
+
+  const last = history[history.length - 1];
+  const prev = history[history.length - 2];
+  const intervalMs = Math.max(1_000, last.timestampMs - prev.timestampMs);
+  const predictions = forecastLinear(history, query.horizon, intervalMs);
+
+  return {
+    method: 'linear-regression' as const,
+    horizon: query.horizon,
+    intervalMs,
+    historyCount: history.length,
+    predictions,
+  };
 }

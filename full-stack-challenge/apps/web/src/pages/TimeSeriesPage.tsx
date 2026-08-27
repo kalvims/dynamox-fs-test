@@ -12,6 +12,7 @@ import {
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import {
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -47,9 +48,8 @@ function buildSampleReadings(count = 24) {
 export function TimeSeriesPage() {
   const { pointId = '' } = useParams();
   const dispatch = useAppDispatch();
-  const { readings, metrics, globalCount, status, mutationStatus, error } = useAppSelector(
-    (state) => state.timeSeries
-  );
+  const { readings, metrics, forecast, globalCount, status, mutationStatus, error } =
+    useAppSelector((state) => state.timeSeries);
 
   const [point, setPoint] = useState<MonitoringPointDto | null>(null);
   const [pointError, setPointError] = useState<string | null>(null);
@@ -80,14 +80,30 @@ export function TimeSeriesPage() {
     };
   }, [dispatch, pointId]);
 
-  const chartData = useMemo(
-    () =>
-      readings.map((reading) => ({
-        ...reading,
-        label: new Date(reading.timestamp).toLocaleTimeString(),
-      })),
-    [readings]
-  );
+  const chartData = useMemo(() => {
+    const actual = readings.map((reading) => ({
+      label: new Date(reading.timestamp).toLocaleTimeString(),
+      actual: reading.value,
+      predicted: null as number | null,
+    }));
+
+    const predicted =
+      forecast?.predictions.map((point) => ({
+        label: new Date(point.timestamp).toLocaleTimeString(),
+        actual: null as number | null,
+        predicted: point.value,
+      })) ?? [];
+
+    // Connect forecast to the last actual point for a continuous dashed line
+    if (actual.length > 0 && predicted.length > 0) {
+      actual[actual.length - 1] = {
+        ...actual[actual.length - 1],
+        predicted: actual[actual.length - 1].actual,
+      };
+    }
+
+    return [...actual, ...predicted];
+  }, [readings, forecast]);
 
   const handleStoreSample = async () => {
     if (!pointId) return;
@@ -199,7 +215,7 @@ export function TimeSeriesPage() {
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Chart
+            Chart {forecast ? `(+ ${forecast.horizon}-step linear forecast)` : ''}
           </Typography>
           {status === 'loading' && readings.length === 0 ? (
             <Typography color="text.secondary">Loading...</Typography>
@@ -213,16 +229,35 @@ export function TimeSeriesPage() {
                   <XAxis dataKey="label" minTickGap={24} />
                   <YAxis />
                   <Tooltip />
+                  <Legend />
                   <Line
                     type="monotone"
-                    dataKey="value"
+                    dataKey="actual"
+                    name="Actual"
                     stroke="#0B3A5B"
                     strokeWidth={2}
                     dot={false}
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="predicted"
+                    name="Forecast"
+                    stroke="#00A3A1"
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                    dot={false}
+                    connectNulls
                   />
                 </LineChart>
               </ResponsiveContainer>
             </Box>
+          )}
+          {forecast && (
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+              Method: {forecast.method} · history {forecast.historyCount} · interval{' '}
+              {forecast.intervalMs}ms
+            </Typography>
           )}
         </CardContent>
       </Card>

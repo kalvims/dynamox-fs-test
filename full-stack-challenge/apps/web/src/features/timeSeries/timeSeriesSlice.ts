@@ -4,6 +4,7 @@ import type {
   DeleteReadingsResponse,
   SensorMetricsDto,
   SensorReadingDto,
+  TimeSeriesForecastDto,
   TimeSeriesRangeParams,
 } from '@dynamox/shared';
 import { timeSeriesApi } from '../../services/api';
@@ -13,6 +14,7 @@ interface TimeSeriesState {
   pointId: string | null;
   readings: SensorReadingDto[];
   metrics: SensorMetricsDto | null;
+  forecast: TimeSeriesForecastDto | null;
   globalCount: number | null;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   mutationStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
@@ -23,6 +25,7 @@ const initialState: TimeSeriesState = {
   pointId: null,
   readings: [],
   metrics: null,
+  forecast: null,
   globalCount: null,
   status: 'idle',
   mutationStatus: 'idle',
@@ -32,7 +35,11 @@ const initialState: TimeSeriesState = {
 export const fetchTimeSeries = createAsyncThunk(
   'timeSeries/fetch',
   async (
-    { pointId, range }: { pointId: string; range?: TimeSeriesRangeParams },
+    {
+      pointId,
+      range,
+      horizon = 12,
+    }: { pointId: string; range?: TimeSeriesRangeParams; horizon?: number },
     { rejectWithValue }
   ) => {
     try {
@@ -41,7 +48,13 @@ export const fetchTimeSeries = createAsyncThunk(
         timeSeriesApi.metrics(pointId, range),
         timeSeriesApi.globalCount(),
       ]);
-      return { pointId, readings, metrics, globalCount: globalCount.count };
+
+      let forecast: TimeSeriesForecastDto | null = null;
+      if (readings.length >= 2) {
+        forecast = await timeSeriesApi.forecast(pointId, horizon);
+      }
+
+      return { pointId, readings, metrics, forecast, globalCount: globalCount.count };
     } catch (error) {
       if (error instanceof ApiClientError) {
         return rejectWithValue(error.message);
@@ -107,6 +120,7 @@ const timeSeriesSlice = createSlice({
         state.pointId = action.payload.pointId;
         state.readings = action.payload.readings;
         state.metrics = action.payload.metrics;
+        state.forecast = action.payload.forecast;
         state.globalCount = action.payload.globalCount;
       })
       .addCase(fetchTimeSeries.rejected, (state, action) => {
@@ -132,6 +146,7 @@ const timeSeriesSlice = createSlice({
         state.mutationStatus = 'succeeded';
         if (action.payload.deletedCount > 0) {
           state.readings = [];
+          state.forecast = null;
           state.metrics = { count: 0, min: null, max: null, avg: null };
         }
       })

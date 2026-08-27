@@ -13,6 +13,7 @@ import type {
   ReadingsCountResponse,
   SensorMetricsDto,
   SensorReadingDto,
+  TimeSeriesForecastDto,
   TimeSeriesRangeParams,
   UpdateMachineRequest,
 } from '@dynamox/shared';
@@ -111,6 +112,10 @@ export const timeSeriesApi = {
     apiRequest<DeleteReadingsResponse>(
       `/api/monitoring-points/${pointId}/readings${toQuery(range)}`,
       { method: 'DELETE' }
+    ),
+  forecast: (pointId: string, horizon = 12) =>
+    apiRequest<TimeSeriesForecastDto>(
+      `/api/monitoring-points/${pointId}/readings/forecast${toQuery({ horizon })}`
     ),
   globalCount: () => apiRequest<ReadingsCountResponse>('/api/readings/count'),
 };

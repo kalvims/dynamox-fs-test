@@ -4,7 +4,9 @@ import { validateBody } from '../../shared/validate';
 import { validateQuery } from '../../shared/validate-query';
 import {
   createReadingsSchema,
+  forecastQuerySchema,
   readingsRangeQuerySchema,
+  type ForecastQuery,
   type ReadingsRangeQuery,
 } from './time-series.schemas';
 import * as timeSeriesService from './time-series.service';
@@ -44,6 +46,20 @@ timeSeriesRouter.get(
       const range = (req as typeof req & { validatedQuery: ReadingsRangeQuery }).validatedQuery;
       const result = await timeSeriesService.getPointReadingsCount(req.params.id, range);
       res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+timeSeriesRouter.get(
+  '/forecast',
+  validateQuery(forecastQuerySchema),
+  async (req, res, next) => {
+    try {
+      const query = (req as typeof req & { validatedQuery: ForecastQuery }).validatedQuery;
+      const forecast = await timeSeriesService.forecastReadings(req.params.id, query);
+      res.json(forecast);
     } catch (error) {
       next(error);
     }

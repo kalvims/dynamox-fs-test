@@ -136,6 +136,23 @@ export interface ReadingsCountResponse {
   count: number;
 }
 
+export interface ForecastPointDto {
+  timestamp: string;
+  value: number;
+}
+
+export interface TimeSeriesForecastDto {
+  method: 'linear-regression';
+  horizon: number;
+  intervalMs: number;
+  historyCount: number;
+  predictions: ForecastPointDto[];
+}
+
+export interface ForecastQueryParams {
+  horizon?: number;
+}
+
 export interface ApiError {
   statusCode: number;
   message: string;
