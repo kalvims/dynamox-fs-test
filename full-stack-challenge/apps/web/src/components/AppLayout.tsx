@@ -51,7 +51,11 @@ export function AppLayout() {
             key={item.path}
             component={RouterLink}
             to={item.path}
-            selected={location.pathname === item.path}
+            selected={
+              item.path === '/'
+                ? location.pathname === '/'
+                : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
+            }
             onClick={() => setMobileOpen(false)}
           >
             <ListItemText primary={item.label} />

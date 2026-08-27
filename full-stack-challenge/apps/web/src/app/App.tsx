@@ -8,6 +8,7 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MachinesPage } from '../pages/MachinesPage';
 import { MonitoringPointsPage } from '../pages/MonitoringPointsPage';
+import { TimeSeriesPage } from '../pages/TimeSeriesPage';
 
 export default function App() {
   const dispatch = useAppDispatch();
@@ -27,6 +28,7 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="machines" element={<MachinesPage />} />
           <Route path="monitoring-points" element={<MonitoringPointsPage />} />
+          <Route path="monitoring-points/:pointId/time-series" element={<TimeSeriesPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -19,6 +19,8 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SensorsIcon from '@mui/icons-material/Sensors';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   MachineType,
   SensorModel,
@@ -227,6 +229,13 @@ export function MonitoringPointsPage() {
         align: 'right',
         render: (row) => (
           <>
+            <IconButton
+              aria-label="time-series"
+              component={RouterLink}
+              to={`/monitoring-points/${row.id}/time-series`}
+            >
+              <ShowChartIcon />
+            </IconButton>
             {!row.sensorId ? (
               <IconButton aria-label="associate sensor" onClick={() => openSensorDialog(row)}>
                 <SensorsIcon />

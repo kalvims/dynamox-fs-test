@@ -4,10 +4,16 @@ import type {
   AssociateSensorRequest,
   CreateMachineRequest,
   CreateMonitoringPointRequest,
+  CreateSensorReadingsRequest,
+  DeleteReadingsResponse,
   ListMonitoringPointsParams,
   MachineDto,
   MonitoringPointDto,
   PaginatedResponse,
+  ReadingsCountResponse,
+  SensorMetricsDto,
+  SensorReadingDto,
+  TimeSeriesRangeParams,
   UpdateMachineRequest,
 } from '@dynamox/shared';
 import { apiRequest } from './apiClient';
@@ -43,12 +49,11 @@ export const machinesApi = {
     }),
 };
 
-function toQuery(params: ListMonitoringPointsParams): string {
+function toQuery(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
-  if (params.page != null) search.set('page', String(params.page));
-  if (params.limit != null) search.set('limit', String(params.limit));
-  if (params.sortBy) search.set('sortBy', params.sortBy);
-  if (params.order) search.set('order', params.order);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== '') search.set(key, String(value));
+  });
   const qs = search.toString();
   return qs ? `?${qs}` : '';
 }
@@ -56,8 +61,14 @@ function toQuery(params: ListMonitoringPointsParams): string {
 export const monitoringPointsApi = {
   list: (params: ListMonitoringPointsParams = {}) =>
     apiRequest<PaginatedResponse<MonitoringPointDto>>(
-      `/api/monitoring-points${toQuery(params)}`
+      `/api/monitoring-points${toQuery({
+        page: params.page,
+        limit: params.limit,
+        sortBy: params.sortBy,
+        order: params.order,
+      })}`
     ),
+  get: (id: string) => apiRequest<MonitoringPointDto>(`/api/monitoring-points/${id}`),
   create: (machineId: string, payload: CreateMonitoringPointRequest) =>
     apiRequest<MonitoringPointDto>(`/api/machines/${machineId}/monitoring-points`, {
       method: 'POST',
@@ -76,4 +87,30 @@ export const monitoringPointsApi = {
     apiRequest<void>(`/api/monitoring-points/${pointId}/sensor`, {
       method: 'DELETE',
     }),
+};
+
+export const timeSeriesApi = {
+  store: (pointId: string, payload: CreateSensorReadingsRequest) =>
+    apiRequest<{ insertedCount: number }>(`/api/monitoring-points/${pointId}/readings`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  list: (pointId: string, range: TimeSeriesRangeParams = {}) =>
+    apiRequest<SensorReadingDto[]>(
+      `/api/monitoring-points/${pointId}/readings${toQuery(range)}`
+    ),
+  metrics: (pointId: string, range: TimeSeriesRangeParams = {}) =>
+    apiRequest<SensorMetricsDto>(
+      `/api/monitoring-points/${pointId}/readings/metrics${toQuery(range)}`
+    ),
+  count: (pointId: string, range: TimeSeriesRangeParams = {}) =>
+    apiRequest<ReadingsCountResponse>(
+      `/api/monitoring-points/${pointId}/readings/count${toQuery(range)}`
+    ),
+  remove: (pointId: string, range: TimeSeriesRangeParams = {}) =>
+    apiRequest<DeleteReadingsResponse>(
+      `/api/monitoring-points/${pointId}/readings${toQuery(range)}`,
+      { method: 'DELETE' }
+    ),
+  globalCount: () => apiRequest<ReadingsCountResponse>('/api/readings/count'),
 };
