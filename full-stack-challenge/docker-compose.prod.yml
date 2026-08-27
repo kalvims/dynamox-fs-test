@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dynamox
+      POSTGRES_PASSWORD: dynamox
+      POSTGRES_DB: dynamox
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U dynamox -d dynamox']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      target: api
+    environment:
+      DATABASE_URL: postgresql://dynamox:dynamox@postgres:5432/dynamox?schema=public
+      JWT_SECRET: change-me-in-production
+      JWT_EXPIRES_IN: 8h
+      PORT: 3001
+      CORS_ORIGIN: http://localhost
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      - '80:80'
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

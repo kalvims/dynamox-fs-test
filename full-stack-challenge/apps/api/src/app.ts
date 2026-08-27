@@ -1,5 +1,6 @@
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
+import { responseTimeMiddleware } from './middleware/response-time';
 import { authRouter } from './modules/auth/auth.routes';
 import { machinesRouter } from './modules/machines/machines.routes';
 import {
@@ -11,10 +12,12 @@ import { AppError } from './shared/errors';
 export function createApp() {
   const app = express();
 
+  app.use(responseTimeMiddleware);
   app.use(
     cors({
       origin: process.env.CORS_ORIGIN ?? 'http://localhost:4200',
       credentials: true,
+      exposedHeaders: ['X-Response-Time'],
     })
   );
   app.use(express.json({ limit: '1mb' }));
