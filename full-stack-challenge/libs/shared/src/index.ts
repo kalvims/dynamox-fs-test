@@ -123,6 +123,19 @@ export interface SensorMetricsDto {
   avg: number | null;
 }
 
+export interface TimeSeriesRangeParams {
+  from?: string;
+  to?: string;
+}
+
+export interface DeleteReadingsResponse {
+  deletedCount: number;
+}
+
+export interface ReadingsCountResponse {
+  count: number;
+}
+
 export interface ApiError {
   statusCode: number;
   message: string;

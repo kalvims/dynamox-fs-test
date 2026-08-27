@@ -29,6 +29,15 @@ monitoringPointsRouter.get(
   }
 );
 
+monitoringPointsRouter.get('/:id', async (req, res, next) => {
+  try {
+    const point = await monitoringPointsService.getMonitoringPoint(req.params.id);
+    res.json(point);
+  } catch (error) {
+    next(error);
+  }
+});
+
 monitoringPointsRouter.delete('/:id', async (req, res, next) => {
   try {
     await monitoringPointsService.deleteMonitoringPoint(req.params.id);

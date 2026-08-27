@@ -106,6 +106,17 @@ export async function listMonitoringPoints(query: ListMonitoringPointsQuery) {
   };
 }
 
+export async function getMonitoringPoint(id: string) {
+  const point = await prisma.monitoringPoint.findUnique({
+    where: { id },
+    include: { machine: true, sensor: true },
+  });
+  if (!point) {
+    throw new AppError(404, 'Monitoring point not found');
+  }
+  return mapMonitoringPoint(point);
+}
+
 export async function deleteMonitoringPoint(id: string) {
   const point = await prisma.monitoringPoint.findUnique({ where: { id } });
   if (!point) {

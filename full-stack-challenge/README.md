@@ -55,6 +55,7 @@ API responses include `X-Response-Time` (also exposed via CORS) to help verify t
 8. Changing a machine type to `Pump` is blocked if any of its monitoring points already has a `TcAg` or `TcAs` sensor; remove or replace those sensors first.
 9. At least two monitoring points per machine is a soft recommendation: the API allows N points; the UI shows real `monitoringPointsCount` per machine and warns when below 2.
 10. Monitoring points list is paginated server-side (default 5/page) and sortable by Machine Name, Machine Type, Monitoring Point Name, and Sensor Model.
+11. Time-series readings belong to a monitoring point. Storing readings requires a sensor to be associated first. Readings are `{ timestamp, value }` batches. Metrics expose count/min/max/avg. Global reading count is available at `GET /api/readings/count`.
 
 ## Deploy (bonus — template)
 
@@ -77,4 +78,4 @@ For cloud providers (Railway, Render, Fly.io): deploy Postgres + API, build the 
 - [x] Monitoring points & sensors (create, associate, paginated/sorted list, Pump rule)
 - [x] High-priority hardening (associateSensor tests, Fan→Pump guard, React 18 + Vite 5)
 - [x] Reusable UI components, FE tests, X-Response-Time, soft ≥2 points rule, ConfirmDialog, Cypress scaffold, deploy template
-- [ ] Time-series
+- [x] Time-series (store/list/metrics/count/delete + Recharts visualization)
