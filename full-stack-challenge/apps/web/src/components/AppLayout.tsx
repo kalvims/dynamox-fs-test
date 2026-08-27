@@ -24,6 +24,7 @@ const MenuIcon = resolveMuiIcon(MenuIconImport);
 const navItems = [
   { label: 'Dashboard', path: '/' },
   { label: 'Machines', path: '/machines' },
+  { label: 'Monitoring Points', path: '/monitoring-points' },
 ];
 
 const drawerWidth = 240;

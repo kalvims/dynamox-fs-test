@@ -92,6 +92,15 @@ export type MonitoringPointSortField =
   | 'name'
   | 'sensorModel';
 
+export type SortOrder = 'asc' | 'desc';
+
+export interface ListMonitoringPointsParams {
+  page?: number;
+  limit?: number;
+  sortBy?: MonitoringPointSortField;
+  order?: SortOrder;
+}
+
 export interface SensorReadingDto {
   id: string;
   monitoringPointId: string;

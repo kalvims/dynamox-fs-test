@@ -7,6 +7,7 @@ import { PrivateRoute } from '../components/PrivateRoute';
 import { DashboardPage } from '../pages/DashboardPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MachinesPage } from '../pages/MachinesPage';
+import { MonitoringPointsPage } from '../pages/MonitoringPointsPage';
 
 export default function App() {
   const dispatch = useAppDispatch();
@@ -25,6 +26,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="machines" element={<MachinesPage />} />
+          <Route path="monitoring-points" element={<MonitoringPointsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
