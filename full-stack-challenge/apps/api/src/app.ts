@@ -1,0 +1,46 @@
+import cors from 'cors';
+import express, { NextFunction, Request, Response } from 'express';
+import { authRouter } from './modules/auth/auth.routes';
+import { machinesRouter } from './modules/machines/machines.routes';
+import { AppError } from './shared/errors';
+
+export function createApp() {
+  const app = express();
+
+  app.use(
+    cors({
+      origin: process.env.CORS_ORIGIN ?? 'http://localhost:4200',
+      credentials: true,
+    })
+  );
+  app.use(express.json({ limit: '1mb' }));
+
+  app.get('/health', (_req, res) => {
+    res.json({ status: 'ok' });
+  });
+
+  app.use('/api/auth', authRouter);
+  app.use('/api/machines', machinesRouter);
+
+  app.use((_req, res) => {
+    res.status(404).json({ statusCode: 404, message: 'Route not found' });
+  });
+
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof AppError) {
+      return res.status(err.statusCode).json({
+        statusCode: err.statusCode,
+        message: err.message,
+        errors: err.errors,
+      });
+    }
+
+    console.error(err);
+    return res.status(500).json({
+      statusCode: 500,
+      message: 'Internal server error',
+    });
+  });
+
+  return app;
+}
