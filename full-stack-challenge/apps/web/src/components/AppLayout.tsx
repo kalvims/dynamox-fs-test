@@ -13,13 +13,10 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import MenuIconImport from '@mui/icons-material/Menu';
+import MenuIcon from '@mui/icons-material/Menu';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { logout } from '../features/auth/authSlice';
-import { resolveMuiIcon } from '../utils/resolveMuiIcon';
-
-const MenuIcon = resolveMuiIcon(MenuIconImport);
 
 const navItems = [
   { label: 'Dashboard', path: '/' },

@@ -43,6 +43,7 @@ export interface MachineDto {
   id: string;
   name: string;
   type: MachineType;
+  monitoringPointsCount: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -13,18 +13,15 @@ import {
   MenuItem,
   Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
-  Typography,
 } from '@mui/material';
-import DeleteIconImport from '@mui/icons-material/Delete';
-import EditIconImport from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import { MachineType, type MachineDto } from '@dynamox/shared';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DataTable, type DataTableColumn } from '../components/DataTable';
+import { PageHeader } from '../components/PageHeader';
 import {
   clearMachinesError,
   createMachine,
@@ -32,10 +29,6 @@ import {
   fetchMachines,
   updateMachine,
 } from '../features/machines/machinesSlice';
-import { resolveMuiIcon } from '../utils/resolveMuiIcon';
-
-const DeleteIcon = resolveMuiIcon(DeleteIconImport);
-const EditIcon = resolveMuiIcon(EditIconImport);
 
 const emptyForm = {
   name: '',
@@ -48,6 +41,7 @@ export function MachinesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MachineDto | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [pendingDelete, setPendingDelete] = useState<MachineDto | null>(null);
 
   useEffect(() => {
     dispatch(fetchMachines());
@@ -85,60 +79,65 @@ export function MachinesPage() {
     }
   };
 
-  const handleDelete = async (machine: MachineDto) => {
-    const confirmed = window.confirm(`Delete machine "${machine.name}"?`);
-    if (!confirmed) return;
-    dispatch(deleteMachine(machine.id));
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    await dispatch(deleteMachine(pendingDelete.id));
+    setPendingDelete(null);
   };
+
+  const columns: Array<DataTableColumn<MachineDto>> = useMemo(
+    () => [
+      { id: 'name', label: 'Name', render: (row) => row.name },
+      { id: 'type', label: 'Type', render: (row) => row.type },
+      {
+        id: 'monitoringPointsCount',
+        label: 'Monitoring points',
+        render: (row) => row.monitoringPointsCount,
+      },
+      {
+        id: 'updatedAt',
+        label: 'Updated',
+        render: (row) => new Date(row.updatedAt).toLocaleString(),
+      },
+      {
+        id: 'actions',
+        label: 'Actions',
+        align: 'right',
+        render: (row) => (
+          <>
+            <IconButton aria-label="edit" onClick={() => openEdit(row)}>
+              <EditIcon />
+            </IconButton>
+            <IconButton aria-label="delete" onClick={() => setPendingDelete(row)}>
+              <DeleteIcon />
+            </IconButton>
+          </>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <Stack spacing={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
-        <Typography variant="h4">Machines</Typography>
-        <Button variant="contained" onClick={openCreate}>
-          New machine
-        </Button>
-      </Box>
+      <PageHeader
+        title="Machines"
+        actions={
+          <Button variant="contained" onClick={openCreate}>
+            New machine
+          </Button>
+        }
+      />
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell>Type</TableCell>
-            <TableCell>Updated</TableCell>
-            <TableCell align="right">Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {status === 'loading' && items.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4}>Loading...</TableCell>
-            </TableRow>
-          ) : items.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4}>No machines yet. Create the first one.</TableCell>
-            </TableRow>
-          ) : (
-            items.map((machine) => (
-              <TableRow key={machine.id} hover>
-                <TableCell>{machine.name}</TableCell>
-                <TableCell>{machine.type}</TableCell>
-                <TableCell>{new Date(machine.updatedAt).toLocaleString()}</TableCell>
-                <TableCell align="right">
-                  <IconButton aria-label="edit" onClick={() => openEdit(machine)}>
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton aria-label="delete" onClick={() => handleDelete(machine)}>
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+      <DataTable
+        columns={columns}
+        rows={items}
+        getRowId={(row) => row.id}
+        loading={status === 'loading'}
+        emptyMessage="No machines yet. Create the first one."
+      />
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? 'Edit machine' : 'Create machine'}</DialogTitle>
@@ -176,6 +175,16 @@ export function MachinesPage() {
           </DialogActions>
         </Box>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title="Delete machine"
+        description={`Delete machine "${pendingDelete?.name}"? This also removes its monitoring points and sensors.`}
+        confirmLabel="Delete"
+        loading={mutationStatus === 'loading'}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={confirmDelete}
+      />
     </Stack>
   );
 }

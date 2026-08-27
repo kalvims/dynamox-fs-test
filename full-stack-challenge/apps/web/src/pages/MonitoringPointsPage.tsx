@@ -14,17 +14,11 @@ import {
   Pagination,
   Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TableSortLabel,
   TextField,
   Typography,
 } from '@mui/material';
-import DeleteIconImport from '@mui/icons-material/Delete';
-import SensorsIconImport from '@mui/icons-material/Sensors';
+import DeleteIcon from '@mui/icons-material/Delete';
+import SensorsIcon from '@mui/icons-material/Sensors';
 import {
   MachineType,
   SensorModel,
@@ -34,6 +28,9 @@ import {
   type MonitoringPointSortField,
 } from '@dynamox/shared';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DataTable, type DataTableColumn } from '../components/DataTable';
+import { PageHeader } from '../components/PageHeader';
 import { fetchMachines } from '../features/machines/machinesSlice';
 import {
   associateSensor,
@@ -45,19 +42,20 @@ import {
   setMonitoringPointsPage,
   setMonitoringPointsSort,
 } from '../features/monitoringPoints/monitoringPointsSlice';
-import { resolveMuiIcon } from '../utils/resolveMuiIcon';
-
-const DeleteIcon = resolveMuiIcon(DeleteIconImport);
-const SensorsIcon = resolveMuiIcon(SensorsIconImport);
 
 const ALL_SENSOR_MODELS = [SensorModel.TcAg, SensorModel.TcAs, SensorModel.HFPlus];
 
-const columns: Array<{ id: MonitoringPointSortField; label: string }> = [
-  { id: 'machineName', label: 'Machine Name' },
-  { id: 'machineType', label: 'Machine Type' },
-  { id: 'name', label: 'Monitoring Point Name' },
-  { id: 'sensorModel', label: 'Sensor Model' },
+const SORTABLE_COLUMNS: MonitoringPointSortField[] = [
+  'machineName',
+  'machineType',
+  'name',
+  'sensorModel',
 ];
+
+type ConfirmAction =
+  | { type: 'deletePoint'; point: MonitoringPointDto }
+  | { type: 'removeSensor'; point: MonitoringPointDto }
+  | null;
 
 export function MonitoringPointsPage() {
   const dispatch = useAppDispatch();
@@ -77,6 +75,7 @@ export function MonitoringPointsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [sensorOpen, setSensorOpen] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState<MonitoringPointDto | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [createForm, setCreateForm] = useState({ machineId: '', name: '' });
   const [sensorForm, setSensorForm] = useState({
     sensorId: '',
@@ -96,6 +95,8 @@ export function MonitoringPointsPage() {
     [machines, createForm.machineId]
   );
 
+  const selectedMachinePointCount = selectedMachine?.monitoringPointsCount ?? 0;
+
   const allowedModelsForSelectedPoint = useMemo(() => {
     if (!selectedPoint) return ALL_SENSOR_MODELS;
     return ALL_SENSOR_MODELS.filter((model) =>
@@ -103,13 +104,10 @@ export function MonitoringPointsPage() {
     );
   }, [selectedPoint]);
 
-  const machinePointCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const point of items) {
-      counts.set(point.machineId, (counts.get(point.machineId) ?? 0) + 1);
-    }
-    return counts;
-  }, [items]);
+  const machinesBelowRecommended = useMemo(
+    () => machines.filter((machine) => machine.monitoringPointsCount < 2),
+    [machines]
+  );
 
   const openCreate = () => {
     dispatch(clearMonitoringPointsError());
@@ -133,7 +131,9 @@ export function MonitoringPointsPage() {
     setSensorOpen(true);
   };
 
-  const handleSort = (field: MonitoringPointSortField) => {
+  const handleSort = (columnId: string) => {
+    if (!SORTABLE_COLUMNS.includes(columnId as MonitoringPointSortField)) return;
+    const field = columnId as MonitoringPointSortField;
     const nextOrder = sortBy === field && order === 'asc' ? 'desc' : 'asc';
     dispatch(setMonitoringPointsSort({ sortBy: field, order: nextOrder }));
   };
@@ -151,8 +151,9 @@ export function MonitoringPointsPage() {
 
     if (createMonitoringPoint.fulfilled.match(result)) {
       setCreateOpen(false);
-      dispatch(fetchMonitoringPoints({ page: 1, sortBy, order, limit: 5 }));
+      dispatch(fetchMachines());
       dispatch(setMonitoringPointsPage(1));
+      dispatch(fetchMonitoringPoints({ page: 1, sortBy, order, limit: 5 }));
     }
   };
 
@@ -173,104 +174,121 @@ export function MonitoringPointsPage() {
     }
   };
 
-  const handleDeletePoint = async (point: MonitoringPointDto) => {
-    const confirmed = window.confirm(`Delete monitoring point "${point.name}"?`);
-    if (!confirmed) return;
-    const result = await dispatch(deleteMonitoringPoint(point.id));
-    if (deleteMonitoringPoint.fulfilled.match(result)) {
-      dispatch(fetchMonitoringPoints({ page, sortBy, order, limit: 5 }));
+  const handleConfirm = async () => {
+    if (!confirmAction) return;
+
+    if (confirmAction.type === 'deletePoint') {
+      const result = await dispatch(deleteMonitoringPoint(confirmAction.point.id));
+      if (deleteMonitoringPoint.fulfilled.match(result)) {
+        dispatch(fetchMachines());
+        dispatch(fetchMonitoringPoints({ page, sortBy, order, limit: 5 }));
+      }
+    } else {
+      await dispatch(removeSensor(confirmAction.point.id));
     }
+
+    setConfirmAction(null);
   };
 
-  const handleRemoveSensor = async (point: MonitoringPointDto) => {
-    const confirmed = window.confirm(`Remove sensor "${point.sensorId}" from "${point.name}"?`);
-    if (!confirmed) return;
-    await dispatch(removeSensor(point.id));
-  };
+  const columns: Array<DataTableColumn<MonitoringPointDto>> = useMemo(
+    () => [
+      {
+        id: 'machineName',
+        label: 'Machine Name',
+        sortable: true,
+        render: (row) => row.machineName,
+      },
+      {
+        id: 'machineType',
+        label: 'Machine Type',
+        sortable: true,
+        render: (row) => row.machineType,
+      },
+      {
+        id: 'name',
+        label: 'Monitoring Point Name',
+        sortable: true,
+        render: (row) => row.name,
+      },
+      {
+        id: 'sensorModel',
+        label: 'Sensor Model',
+        sortable: true,
+        render: (row) => row.sensorModel ?? '—',
+      },
+      {
+        id: 'sensorId',
+        label: 'Sensor ID',
+        render: (row) => row.sensorId ?? '—',
+      },
+      {
+        id: 'actions',
+        label: 'Actions',
+        align: 'right',
+        render: (row) => (
+          <>
+            {!row.sensorId ? (
+              <IconButton aria-label="associate sensor" onClick={() => openSensorDialog(row)}>
+                <SensorsIcon />
+              </IconButton>
+            ) : (
+              <Button
+                size="small"
+                onClick={() => setConfirmAction({ type: 'removeSensor', point: row })}
+              >
+                Remove sensor
+              </Button>
+            )}
+            <IconButton
+              aria-label="delete"
+              onClick={() => setConfirmAction({ type: 'deletePoint', point: row })}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <Stack spacing={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
-        <Box>
-          <Typography variant="h4">Monitoring Points</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {total} total · 5 per page · sort by any column
-          </Typography>
-        </Box>
-        <Button variant="contained" onClick={openCreate} disabled={machines.length === 0}>
-          New monitoring point
-        </Button>
-      </Box>
+      <PageHeader
+        title="Monitoring Points"
+        subtitle={`${total} total · 5 per page · sort by any column`}
+        actions={
+          <Button variant="contained" onClick={openCreate} disabled={machines.length === 0}>
+            New monitoring point
+          </Button>
+        }
+      />
 
       {machines.length === 0 && (
         <Alert severity="info">Create a machine first before adding monitoring points.</Alert>
       )}
 
-      {selectedMachine && (machinePointCounts.get(selectedMachine.id) ?? 0) < 2 && createOpen && (
+      {machinesBelowRecommended.length > 0 && (
         <Alert severity="info">
-          Tip: each machine should have at least two monitoring points.
+          Recommended: at least 2 monitoring points per machine. Below target:{' '}
+          {machinesBelowRecommended
+            .map((machine) => `${machine.name} (${machine.monitoringPointsCount})`)
+            .join(', ')}
         </Alert>
       )}
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            {columns.map((column) => (
-              <TableCell key={column.id} sortDirection={sortBy === column.id ? order : false}>
-                <TableSortLabel
-                  active={sortBy === column.id}
-                  direction={sortBy === column.id ? order : 'asc'}
-                  onClick={() => handleSort(column.id)}
-                >
-                  {column.label}
-                </TableSortLabel>
-              </TableCell>
-            ))}
-            <TableCell>Sensor ID</TableCell>
-            <TableCell align="right">Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {status === 'loading' && items.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6}>Loading...</TableCell>
-            </TableRow>
-          ) : items.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6}>No monitoring points yet.</TableCell>
-            </TableRow>
-          ) : (
-            items.map((point) => (
-              <TableRow key={point.id} hover>
-                <TableCell>{point.machineName}</TableCell>
-                <TableCell>{point.machineType}</TableCell>
-                <TableCell>{point.name}</TableCell>
-                <TableCell>{point.sensorModel ?? '—'}</TableCell>
-                <TableCell>{point.sensorId ?? '—'}</TableCell>
-                <TableCell align="right">
-                  {!point.sensorId ? (
-                    <IconButton
-                      aria-label="associate sensor"
-                      onClick={() => openSensorDialog(point)}
-                    >
-                      <SensorsIcon />
-                    </IconButton>
-                  ) : (
-                    <Button size="small" onClick={() => handleRemoveSensor(point)}>
-                      Remove sensor
-                    </Button>
-                  )}
-                  <IconButton aria-label="delete" onClick={() => handleDeletePoint(point)}>
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+      <DataTable
+        columns={columns}
+        rows={items}
+        getRowId={(row) => row.id}
+        loading={status === 'loading'}
+        emptyMessage="No monitoring points yet."
+        sortBy={sortBy}
+        sortDirection={order}
+        onSort={handleSort}
+      />
 
       <Box display="flex" justifyContent="flex-end">
         <Pagination
@@ -298,7 +316,7 @@ export function MonitoringPointsPage() {
                 >
                   {machines.map((machine) => (
                     <MenuItem key={machine.id} value={machine.id}>
-                      {machine.name} ({machine.type})
+                      {machine.name} ({machine.type}) · {machine.monitoringPointsCount} points
                     </MenuItem>
                   ))}
                 </Select>
@@ -310,6 +328,12 @@ export function MonitoringPointsPage() {
                 required
                 fullWidth
               />
+              {selectedMachine && selectedMachinePointCount < 2 && (
+                <Alert severity="info">
+                  {selectedMachine.name} currently has {selectedMachinePointCount} monitoring
+                  point(s). Aim for at least 2.
+                </Alert>
+              )}
               {selectedMachine?.type === MachineType.Pump && (
                 <Alert severity="warning">
                   Pump machines can only use HF+ sensors (TcAg/TcAs are blocked).
@@ -379,6 +403,24 @@ export function MonitoringPointsPage() {
           </DialogActions>
         </Box>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(confirmAction)}
+        title={
+          confirmAction?.type === 'removeSensor'
+            ? 'Remove sensor'
+            : 'Delete monitoring point'
+        }
+        description={
+          confirmAction?.type === 'removeSensor'
+            ? `Remove sensor "${confirmAction.point.sensorId}" from "${confirmAction.point.name}"?`
+            : `Delete monitoring point "${confirmAction?.point.name}"?`
+        }
+        confirmLabel={confirmAction?.type === 'removeSensor' ? 'Remove' : 'Delete'}
+        loading={mutationStatus === 'loading'}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={handleConfirm}
+      />
     </Stack>
   );
 }
